@@ -1,0 +1,12 @@
+#!/bin/bash
+
+echo "Compile your project here"
+
+#pip install -r requirements.txt
+
+pip install cryptography
+pip install dnslib==0.9.23
+pip install dnspython==2.2.1
+pip install pycryptodome==3.15.0
+pip install pyOpenSSL==22.0.0
+pip install requests==2.22.0

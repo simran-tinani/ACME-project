@@ -1,0 +1,102 @@
+#!/bin/bash
+DIRECTORY=$(dirname "$0")
+echo "Changing to ${DIRECTORY}"
+cd  "$DIRECTORY" || exit 1
+
+chall_type=$1
+shift
+
+if [[ $chall_type != "dns01" ]] && [[ $chall_type != "http01" ]]; then
+  echo "Invalid Challenge Type. Valid options are dns01 and http01"
+  exit 1
+fi
+
+function getopts-extra() {
+  declare i=1
+  while [[ ${OPTIND} -le $# && ${!OPTIND:0:1} != '-' ]]; do
+    OPTARG[i]=${!OPTIND}
+    let i++ OPTIND++
+  done
+}
+
+while getopts ":h:n:" option; do
+  case $option in
+    h) # display Help
+  #    echo $option
+      #echo "world"
+      Help
+      exit;;
+    n) # enter a Name
+      Name=$OPTARG
+      echo "hi $Name"
+      ;;
+    /?) # invalid option
+      echo "Error: invalid option"
+      exit;;
+    esac
+done
+
+
+for arg in $@; do
+  shift
+  case ${arg} in
+    "--dir") set -- "$@" "-d";;
+    "--record") set -- "$@" '-r';;
+    "--domain") set -- "$@" '-w';;
+    "--revoke") set -- "$@" '-k';;
+    *)          set -- "$@" "$arg";;
+  esac
+done
+
+OPTIND=1
+
+declare -a all_domains
+
+while getopts "d:r:w:k:" flag; do
+    case "$flag" in
+      'd') directory=$OPTARG;;
+      'r') record=$OPTARG;;
+      'w') getopts-extra "$@"
+           domain=("${OPTARG[@]}")
+           all_domains+=($domain)
+           printf '%s\t%s\n' $record $domain >> /etc/hosts
+           ;;
+      'k') revoke=$OPTARG;;
+    esac
+done
+shift $((OPTIND -1))
+
+if [ -z "$directory" ]; then
+  echo "Missing directory"
+  exit 1
+fi
+
+if [ -z "$record" ]; then
+  echo "Missing record"
+  exit 1
+fi
+
+if [ -z "$domain" ]; then
+  echo "Missing domain"
+  exit 1
+fi
+
+printf '%s\t%s\n' $record "shutdown.com" >> /etc/hosts
+printf '%s\t%s\n' $record "student-project.com" >> /etc/hosts
+
+nohup python3 http_shutdown.py &
+
+echo "Shutdown HTTP Server is up"
+
+if [[ $chall_type == "dns01" ]]
+then
+    nohup python3 dns_server.py --port 10053 --udp --record $record --domain ${all_domains[@]} &
+    python3 main.py --challenge $chall_type --dir $directory --record $record --domain ${all_domains[@]} --revoke "revoke"
+else 
+    nohup python3 http_server.py --port 5002 --domain ${all_domains[@]} &
+    python3 main.py --challenge $chall_type --dir $directory --record $record --domain ${all_domains[@]} --revoke "revoke"
+fi
+
+nohup python3 https_server.py --domain ${all_domains[@]}  &
+
+echo "HTTPS Server with installed certificate is up"

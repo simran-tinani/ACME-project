@@ -1,0 +1,6 @@
+cryptography==2.8
+dnslib==0.9.23
+dnspython==2.2.1
+pycryptodome==3.15.0
+pyOpenSSL==22.1.0
+requests==2.22.0
